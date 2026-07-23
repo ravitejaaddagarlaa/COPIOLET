@@ -1,1 +1,1170 @@
-HJHJ
+     📘 SQL Master Notes for Azure Data Engineer
+(ADF + Azure Databricks + PySpark + SQL Server)
+Goal: Learn SQL like a Data Engineer, not like a student memorizing queries.
+________________________________________
+Chapter 1: The Data Engineer Mindset
+Most beginners do:
+Problem
+↓
+Search Google
+↓
+Copy SQL
+↓
+Forget SQL
+Successful Data Engineers do:
+Problem
+↓
+Understand Output
+↓
+Identify SQL Pattern
+↓
+Write Solution
+↓
+Optimize
+________________________________________
+SQL Problem Solving Framework
+Whenever interviewer asks a question:
+Step 1: Understand Output
+Example:
+Find latest order for each customer.
+Ask:
+How many rows?
+
+One row per customer?
+Answer:
+Yes
+This tells us:
+Grouping required
+________________________________________
+Step 2: Find SQL Category
+Ask:
+Is this filtering?
+If yes:
+WHERE
+________________________________________
+Ask:
+Is this aggregation?
+If yes:
+GROUP BY
+SUM
+COUNT
+AVG
+________________________________________
+Ask:
+Is this matching multiple tables?
+If yes:
+JOIN
+``
+________________________________________
+Ask:
+Do I need top records,
+latest records,
+or rankings?
+If yes:
+ROW_NUMBER()
+RANK()
+``
+________________________________________
+The Most Important Rule
+Before typing SQL always ask:
+What am I trying to return?
+Not:
+What SQL function should I use?
+But:
+What result do I need?
+________________________________________
+Chapter 2: SELECT
+Purpose
+Retrieve data.
+Problem
+Get all employees.
+Thinking Process
+Ask:
+Do I need to read data?
+Answer:
+Yes
+Use:
+SELECT *
+FROM Employees;
+________________________________________
+Interview Follow-up
+Q: Why avoid SELECT * in production?
+Answer:
+Reads unnecessary columns.
+Increases data movement.
+Impacts performance.
+________________________________________
+Chapter 3: WHERE
+Purpose
+Filter rows.
+Problem
+Find employees earning more than 50,000.
+Thinking
+Ask:
+Do I need every row?
+Answer:
+No
+Need filtering.
+Use:
+SELECT *
+FROM Employees
+WHERE Salary > 50000;
+``
+________________________________________
+Interview Follow-Up
+Q:
+Difference between:
+WHERE
+and
+HAVING
+``
+Answer:
+WHERE filters rows.
+
+HAVING filters groups.
+``
+________________________________________
+Chapter 4: GROUP BY
+Purpose
+Summarize data.
+Problem
+Find sales per customer.
+Thinking
+Raw data:
+Customer 101
+Customer 101
+Customer 101
+Customer 102
+Need:
+One row per customer
+So we must group.
+SELECT CustomerID,
+SUM(Amount)
+FROM Sales
+GROUP BY CustomerID;
+________________________________________
+Golden Rule
+Whenever you hear:
+Per Customer
+Per Product
+Per Day
+Per Month
+Per Region
+Think:
+GROUP BY
+________________________________________
+Chapter 5: HAVING
+Problem
+Find customers with sales above 10,000.
+Thinking
+Step 1
+Need sales total.
+GROUP BY
+Step 2
+Need filtering after grouping.
+HAVING
+Solution:
+SELECT CustomerID,
+SUM(Amount)
+FROM Sales
+GROUP BY CustomerID
+HAVING SUM(Amount)>10000;
+________________________________________
+Chapter 6: JOINS
+Most Asked Interview Topic
+________________________________________
+Problem Example
+Two tables:
+Customer
+CustomerID
+Name
+Orders
+OrderID
+CustomerID
+Amount
+Need:
+Customer Name + Order Amount
+________________________________________
+Thinking
+Ask:
+Can one table provide answer?
+No.
+Need another table.
+Therefore:
+JOIN
+________________________________________
+INNER JOIN
+SELECT *
+FROM Customers c
+INNER JOIN Orders o
+ON c.CustomerID=o.CustomerID;
+Returns:
+Matching rows only.
+________________________________________
+LEFT JOIN
+SELECT *
+FROM Customers c
+LEFT JOIN Orders o
+ON c.CustomerID=o.CustomerID;
+Returns:
+All customers.
+Even without orders.
+________________________________________
+Interview Question
+Find customers with no orders.
+Thinking
+Need all customers.
+LEFT JOIN
+Orders missing become:
+NULL
+Solution:
+SELECT c.CustomerID
+FROM Customers c
+LEFT JOIN Orders o
+ON c.CustomerID=o.CustomerID
+WHERE o.CustomerID IS NULL;
+________________________________________
+Chapter 7: Window Functions
+Most Important Topic for Databricks
+Interviewers love this.
+________________________________________
+Problem
+Find latest order for every customer.
+Example
+Customer A
+Order 1
+
+Customer A
+Order 2
+
+Customer A
+Order 3
+Need:
+Only Order 3
+________________________________________
+Typical Beginner Mistake
+Using:
+MAX(OrderDate)
+This returns only date.
+Not entire row.
+________________________________________
+Correct Thinking
+Need:
+Ranking inside each customer
+Use:
+ROW_NUMBER()
+________________________________________
+Solution
+WITH CTE AS
+(
+SELECT *,
+ROW_NUMBER()
+OVER(
+PARTITION BY CustomerID
+ORDER BY OrderDate DESC
+) RN
+FROM Orders
+)
+
+SELECT *
+FROM CTE
+WHERE RN=1;
+________________________________________
+Interview Follow-Up
+Q:
+Why ORDER BY DESC?
+Answer:
+Newest date first.
+________________________________________
+Chapter 8: Solving Duplicate Records
+Real Data Engineering Problem
+Customer table:
+101 Ravi
+
+101 Ravi
+
+101 Ravi
+
+102 Anil
+Need:
+Keep only one record.
+________________________________________
+Thinking
+Need ranking.
+1
+2
+3
+Then remove:
+2
+3
+Use:
+ROW_NUMBER()
+``
+Solution:
+WITH CTE AS
+(
+SELECT *,
+ROW_NUMBER()
+OVER(
+PARTITION BY CustomerID
+ORDER BY UpdatedDate DESC
+) RN
+FROM Customer
+)
+
+SELECT *
+FROM CTE
+WHERE RN=1;
+________________________________________
+Interview Follow-Up
+Q:
+Why ROW_NUMBER instead of DISTINCT?
+Answer:
+DISTINCT removes exact duplicates.
+
+ROW_NUMBER helps retain latest record.
+________________________________________
+Chapter 9: RANK vs DENSE_RANK
+Interview Favorite.
+Data:
+10000
+
+9000
+
+9000
+
+8000
+________________________________________
+RANK()
+Result:
+1
+
+2
+
+2
+
+4
+``
+Gap exists.
+________________________________________
+DENSE_RANK()
+Result:
+1
+
+2
+
+2
+
+3
+No gap.
+________________________________________
+Interview Question
+Find Top 3 Salaries.
+Thinking:
+Need ranking.
+``
+Use:
+DENSE_RANK()
+________________________________________
+Chapter 10: CTE
+Common Table Expression
+Problem
+Complex query becoming unreadable.
+Thinking
+Break problem into smaller steps.
+Like:
+Step 1
+
+Calculate totals.
+
+Step 2
+
+Filter totals.
+________________________________________
+Example
+WITH SalesCTE AS
+(
+SELECT CustomerID,
+SUM(Amount) Sales
+FROM Sales
+GROUP BY CustomerID
+)
+
+SELECT *
+FROM SalesCTE
+WHERE Sales > 10000;
+________________________________________
+Chapter 11: Subqueries
+Problem
+Find employees above average salary.
+________________________________________
+Thinking
+Need average salary first.
+Then compare each employee.
+One query depends on another.
+Use:
+Subquery
+________________________________________
+Solution
+SELECT *
+FROM Employees
+WHERE Salary >
+(
+SELECT AVG(Salary)
+FROM Employees
+);
+________________________________________
+Chapter 12: MERGE
+Most Important Data Engineer SQL
+Asked in:
+✅ ADF
+✅ Databricks
+✅ Synapse
+✅ SQL Server
+________________________________________
+Problem
+Existing table:
+101 Ravi
+102 Anil
+New file:
+101 Ravi Kumar
+
+103 Ram
+Need:
+Update 101
+
+Insert 103
+________________________________________
+Thinking
+Need:
+Update Existing
++
+Insert New
+Use:
+MERGE
+________________________________________
+Solution
+MERGE Target t
+USING Source s
+ON t.ID=s.ID
+
+WHEN MATCHED
+THEN UPDATE
+
+WHEN NOT MATCHED
+THEN INSERT;
+________________________________________
+Interview Follow-Up
+Q:
+Why MERGE?
+Answer:
+Single statement.
+
+Handles updates and inserts together.
+________________________________________
+Chapter 13: Incremental Loading
+Most Common ADF Question.
+________________________________________
+Problem
+Source has:
+10 million rows
+Today only:
+1000 rows changed
+Should we read all rows?
+No
+________________________________________
+Thinking
+Need only changed records.
+Use:
+Watermark
+Last loaded date:
+2026-07-01
+SQL:
+SELECT *
+FROM Orders
+WHERE ModifiedDate >
+'2026-07-01';
+________________________________________
+Interview Question
+What is watermarking?
+Answer:
+Technique to load only new or changed records
+based on last successful load time.
+________________________________________
+Chapter 14: Running Total
+Problem
+Calculate cumulative sales.
+Data:
+100
+200
+300
+Need:
+100
+300
+600
+________________________________________
+Thinking
+Need previous rows.
+Window Function.
+Use:
+SUM OVER()
+________________________________________
+Solution
+SELECT Date,
+Amount,
+SUM(Amount)
+OVER(
+ORDER BY Date
+) RunningTotal
+FROM Sales;
+________________________________________
+Azure Data Engineer SQL Mapping
+Business Requirement	SQL Solution
+Filter Data	WHERE
+Summarize Data	GROUP BY
+Combine Tables	JOIN
+Latest Record	ROW_NUMBER
+Remove Duplicates	ROW_NUMBER
+Top N Records	RANK
+Running Total	SUM OVER
+Incremental Load	Watermark
+Upsert Data	MERGE
+Break Complex Query	CTE
+Automation	Stored Procedure
+________________________________________
+Microsoft Learn Resources
+SQL Fundamentals
+https://learn.microsoft.com/training/modules/query-relational-data/
+SQL Querying
+https://learn.microsoft.com/training/modules/use-transact-sql-to-query-data/
+Joins
+https://learn.microsoft.com/training/modules/query-multiple-tables-with-joins/
+Window Functions
+https://learn.microsoft.com/sql/t-sql/queries/select-over-clause-transact-sql
+Ranking Functions
+https://learn.microsoft.com/sql/t-sql/functions/ranking-functions-transact-sql
+CTE
+https://learn.microsoft.com/sql/t-sql/queries/with-common-table-expression-transact-sql
+MERGE
+https://learn.microsoft.com/sql/t-sql/statements/merge-transact-sql
+Azure Data Factory
+https://learn.microsoft.com/azure/data-factory/tutorial-incremental-copy-overview
+Azure Databricks
+Azure Databricks Learning Path
+PySpark
+https://learn.microsoft.com/azure/databricks/pyspark/
+Delta Lake
+https://learn.microsoft.com/azure/databricks/delta/
+________________________________________
+Final Interview Formula
+When you see any SQL question:
+Step 1:
+What output is required?
+
+Step 2:
+Do I need filtering?
+→ WHERE
+
+Step 3:
+Do I need grouping?
+→ GROUP BY
+
+Step 4:
+Do I need another table?
+→ JOIN
+
+Step 5:
+Do I need ranking?
+→ ROW_NUMBER / RANK
+
+Step 6:
+Do I need latest record?
+→ ROW_NUMBER
+
+Step 7:
+Do I need update + insert?
+→ MERGE
+
+Step 8:
+Do I need only changed rows?
+→ Watermark
+
+Step 9:
+Can I break query into steps?
+→ CTE
+If you master GROUP BY, JOINs, Window Functions (ROW_NUMBER), MERGE, and Incremental Loading, you'll be able to solve the majority of SQL interview questions asked for Azure Data Engineer, Databricks, ADF, and PySpark roles.
+________________________________________
+How did I do? If this format is useful, consider using 👍 or 👎 feedback, and I can also prepare Part 2: 50 Real Azure Data Engineer SQL Interview Questions with step-by-step thinking, diagrams, and solutions.
+📘 SQL Concepts for Azure Data Engineer
+Where Each SQL Concept Is Used in Real Projects (ADF, Databricks, PySpark, Synapse, SQL Server)
+Goal: Learn SQL by understanding business problems, thinking process, and real-world usage.
+________________________________________
+1. SELECT
+Purpose
+Retrieve data from a table.
+Business Problem
+Show all customers.
+Thinking Process
+Ask:
+Do I simply need to view data?
+Yes →
+SELECT
+Example
+SELECT *
+FROM Customers;
+________________________________________
+Real-Time Usage
+Azure Data Factory (ADF)
+Source query:
+SELECT *
+FROM Sales
+Used before loading data.
+Azure Databricks
+Read SQL tables:
+SELECT *
+FROM sales
+PySpark Equivalent
+df.select("*")
+________________________________________
+2. WHERE
+Purpose
+Filter rows.
+________________________________________
+Business Problem
+Load only active c*stomers.
+________________________________________
+Thinking Process
+Ask:
+Do I need all *ows?
+No →
+Need filtering.
+Use:
+WHERE
+```*
+________________________________________
+Example
+SELECT *FROM Customers
+WHERE Status'Active';
+________________________________________
+Real-Time Usage
+ADF
+Incremental loading:
+SELECT 
+FROM Ordrs
+WHERE Modified*ate > @LastWatermark
+Databricks
+Filter records before processing.
+PySpark
+df.f*lter(df.Status=="Active")
+________________________________________
+3. GROUP BY
+Purpose
+Create summaries.
+________________________________________
+Business Problem
+Total Sales*Per Customer
+________________________________________
+Thinking Process
+Ask:
+Do Ineed every row?
+
+r
+One rowper customer?
+Need one row per customer.
+Use:
+GROUP BY*
+________________________________________
+Example
+SELECT CustomerID,
+SUMAmount)
+FROM Sales
+GROUP BY CustomrID;
+``*
+________________________________________
+Real-Time Usage
+ADF
+Data warehouse loading.
+Daily sales calculations.
+Databricks
+Fact table aggregation.
+Power BI Backend Queries
+Sales by month.
+PySpark
+df.roupy("CustomerID")
+.sum("Amount")
+``*
+________________________________________
+4. HAVING
+Purpose
+Filter grouped data.
+________________________________________
+Business Problem
+Customers spending*more than $10,000.
+________________________________________
+Thinking Process
+Ask:
+Can WHEREwork
+No.
+Because total sales are calculated AFTER grouping.
+Use:
+HAVING
+________________________________________
+Example
+SELECT CustomerID,
+SUM(Aount)
+FROM Sales
+GROUPBY CustomerID
+HAVINGSUM(Amount) > 10000;
+________________________________________
+Real-Time Usage
+Databricks
+High-value customer analysis.
+Power BI
+Top spending customers.
+________________________________________
+5. INNER JOIN
+Purpose
+Combine matching data.
+________________________________________
+Business Problem
+Need customer*name and order amount.
+Customer Table:
+*ustomer Info
+Orders Table:
+Order Info
+________________________________________
+Thinking Process
+Ask:
+Can on* table answer?
+No.
+Need data from multiple tables.
+Use:
+JOIN
+________________________________________
+Example
+SELECT 
+FROM Custmers c
+INNER JOINOrders o
+ON c.CustomerID=o.CustomeID;
+________________________________________
+Real-Time Usage
+Databricks
+Build dimension and fact relationships.
+ADF
+Source system integration.
+Data Warehouse
+Customer + Product + Sales joins.
+PySpark
+*f1.join(df2,"CustomerID")
+________________________________________
+6. LEFT JOIN
+Purpose
+Find missing records.
+________________________________________
+Business Problem
+Customers who ne*er placed orders.
+________________________________________
+Thinking Process
+Need:
+All *ustomers
+Even if orders don't exist.
+Use:
+LEFT JOIN
+________________________________________
+Example
+SELECT c.CustomerID
+FRO* Customers c
+LEFT JOIN Orders o
+ON*c.CustomerID=o.CustomerID
+WHERE o.*ustomerID IS NULL;
+________________________________________
+Real-Time Usage
+Data Quality Checks
+Customer exists but no transactions.
+ADF Data Validation
+Missing references.
+Databricks
+Data reconciliation.
+________________________________________
+7. Aggregate Functions
+________________________________________
+SUM()
+Problem
+Total revenue.
+S*M(Amount)
+Used in:
+✅ Financial reports
+✅ Revenue dashboards
+✅ Power BI
+________________________________________
+COUNT()
+Problem
+Number of orders.
+COUNT(*)
+Used in:
+✅ Monitoring
+✅ KPI dashboards
+✅ Data Quality
+________________________________________
+AVG()
+Problem
+Average salary.
+AVG(Salary)
+Used in:
+✅ HR Analytics
+✅ Business Analytics
+________________________________________
+8. ROW_NUMBER()
+Most Important Data Engineer Concept
+________________________________________
+Business Problem
+Find latest customer record.
+Records:
+Customer 101
+Version 1
+
+Customer 101
+Version 2
+
+Customer 101
+Version 3
+``
+Need:
+Only latest version.
+________________________________________
+Thinking Process
+Need ranking.
+Latest record should be:
+1
+Older:
+2
+3
+Use:
+ROW_NUMBER()
+________________________________________
+Example
+ROW_NUMBER()
+OVER(
+PARTITION BY CustomerID
+ORDER BY UpdatedDate DESC
+)
+________________________________________
+Real-Time Usage
+Databricks
+Remove duplicates.
+Delta Lake
+Merge logic.
+Customer Master Tables
+Keep latest customer information.
+ADF
+Incremental loads.
+________________________________________
+9. RANK()
+Purpose
+Top N Analysis.
+________________________________________
+Business Problem
+Top 10 Customers by Revenue.
+``
+________________________________________
+Thinking Process
+Need ranking.
+Use:
+RANK()
+________________________________________
+Example
+RANK()
+OVER(
+ORDER BY Revenue DESC
+)
+________________________________________
+Real-Time Usage
+Sales Analytics
+Top customers.
+HR Analytics
+Top performers (data only, not employee evaluation).
+Power BI
+Leaderboards.
+________________________________________
+10. LAG()
+Purpose
+Get Previous Record.
+________________________________________
+Business Problem
+Compare today's sales with yesterday's sales.
+________________________________________
+Example
+LAG(Sales)
+OVER(ORDER BY SaleDate)
+________________________________________
+Real-Time Usage
+Time Series Analysis
+Revenue Growth
+Reporting
+Databricks Analytics
+________________________________________
+11. LEAD()
+Purpose
+Get Next Record.
+________________________________________
+Business Problem
+See next month's revenue.
+________________________________________
+Real-Time Usage
+Forecasting.
+Trend calculations.
+________________________________________
+12. CTE
+Purpose
+Break complex logic.
+________________________________________
+Business Problem
+Huge query becoming unreadable.
+________________________________________
+Thinking
+Instead of:
+One giant query
+Use:
+Step 1
+Step 2
+Step 3
+________________________________________
+Example
+WITH SalesCTE
+AS
+(
+SELECT *
+FROM Sales
+)
+SELECT *
+FROM SalesCTE;
+________________________________________
+Real-Time Usage
+Databricks SQL
+Complex pipelines.
+Reporting Queries
+Synapse Analytics
+________________________________________
+13. Subqueries
+Purpose
+One query inside another query.
+________________________________________
+Business Problem
+Find employees above average salary.
+________________________________________
+Thinking
+Need average first.
+Then compare.
+________________________________________
+Example
+SELECT *
+FROM Employees
+WHERE Salary >
+(
+SELECT AVG(Salary)
+FROM Employees
+)
+________________________________________
+Real-Time Usage
+Business reporting.
+Data validations.
+________________________________________
+14. MERGE
+Most Important Azure Data Engineer Concept
+________________________________________
+Business Problem
+Existing Table
+101 Ravi
+102 Anil
+Incoming File
+101 Ravi Kumar
+103 Ram
+Need:
+Update 101
+Insert 103
+________________________________________
+Thinking Process
+Need:
+UPDATE
++
+INSERT
+Together.
+Use:
+MERGE
+________________________________________
+Example
+MERGE Target t
+USING Source s
+ON t.ID=s.ID
+
+WHEN MATCHED
+THEN UPDATE
+
+WHEN NOT MATCHED
+THEN INSERT;
+________________________________________
+Real-Time Usage
+ADF
+Stored Procedures.
+Incremental pipelines.
+Databricks Delta Lake
+Most common usage.
+Synapse
+Data warehouse loading.
+________________________________________
+15. NULL Handling
+Purpose
+Handle missing values.
+________________________________________
+Business Problem
+Phone number missing.
+Need:
+Unknown
+`
+Instead of NULL.
+________________________________________
+Example
+SELECT COALESCE
+(
+Phone,
+'Unknown'
+)
+________________________________________
+Real-Time Usage
+Data Cleaning
+Databricks transformations.
+Power BI
+User-friendly reports.
+________________________________________
+16. Date Functions
+Purpose
+Work with time-based data.
+________________________________________
+Business Problem
+Orders from last 30 days.
+________________________________________
+Example
+DATEDIFF()
+DATEADD()
+GETDATE()
+________________________________________
+Real-Time Usage
+Incremental Loads
+ADF Pipelines
+SLA Reports
+Monitoring
+________________________________________
+17. Stored Procedures
+Purpose
+Reusable SQL Logic.
+________________________________________
+Business Problem
+Daily ETL process.
+Instead of running 20 queries manually.
+Create procedure.
+________________________________________
+Example
+CREATE PROCEDURE usp_LoadSales
+AS
+BEGIN
+...
+END
+________________________________________
+Real-Time Usage
+ADF
+Stored Procedure Activity.
+SQL Server ETL
+Synapse Pipelines
+________________________________________
+18. Watermarking
+Most Asked ADF Question
+________________________________________
+Business Problem
+Table has:
+100 Million Records
+Only:
+500 changed today
+Do we process all?
+No
+________________________________________
+Thinking
+Need changed records only.
+Use:
+Last Successful Timestamp
+Called:
+Watermark
+________________________________________
+Example
+SELECT *
+FROM Orders
+
+WHERE ModifiedDate >
+@LastWatermark
+________________________________________
+Real-Time Usage
+Azure Data Factory
+Incremental Copy.
+Databricks
+Delta ingestion.
+Synapse
+Fact table loading.
+________________________________________
+🔥 Top Concepts by Technology
+Azure Data Factory (ADF)
+Must Know:
+WHERE
+GROUP BY
+JOIN
+MERGE
+Stored Procedures
+Date Functions
+Watermarking
+________________________________________
+Azure Databricks
+Must Know:
+JOINS
+ROW_NUMBER
+RANK
+MERGE
+Window Functions
+CTE
+Aggregations
+________________________________________
+PySpark
+Must Know:
+SELECT
+FILTER
+JOIN
+GROUPBY
+WINDOW FUNCTIONS
+AGGREGATIONS
+________________________________________
+Azure Synapse
+Must Know:
+MERGE
+JOINS
+GROUP BY
+CTE
+Stored Procedures
+Window Functions
+________________________________________
+Final Interview Cheat Sheet
+If Question Says	Think
+Filter records	WHERE
+Total sales	SUM
+Per customer	GROUP BY
+Combine tables	JOIN
+Missing records	LEFT JOIN
+Latest record	ROW_NUMBER
+Top N	RANK
+Previous row	LAG
+Next row	LEAD
+Complex query	CTE
+Update + Insert	MERGE
+Missing value	COALESCE
+Incremental load	Watermark
+Reusable ETL	Stored Procedure
+This is the exact mapping I recommend keeping as your quick-reference SQL notebook for Azure Data Engineer interview preparation. It helps you identify the problem type first, then automatically map it to the correct SQL concept.
+How did I do? If this format is useful, give a 👍 or 👎 and I can also create a 30-day SQL + ADF + Databricks study plan with daily exercises and interview questions.
+
+
